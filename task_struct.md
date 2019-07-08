@@ -16,14 +16,14 @@ task_struct 结构体分析：
 
 state可取的值如下：  
 /* Used in tsk->state: */  
-#define TASK_RUNNING			0x0000        /* 表示进程要么正在执行，要么正要准备执行 */  
-#define TASK_INTERRUPTIBLE		0x0001        /* 表示进程被阻塞（睡眠），直到某个条件变为真，进程的状态就被设置为TASK_RUNNING。*/  
-#define TASK_UNINTERRUPTIBLE		0x0002        /* 表示进程被阻塞，不允许被信号唤醒 */  
-#define __TASK_STOPPED			0x0004        /* 表示进程被停止执行 */  
-#define __TASK_TRACED			0x0008        /* 表示进程被debugger等进程监视 */  
+#define TASK_RUNNING			0x0000        // 表示进程要么正在执行，要么正要准备执行   
+#define TASK_INTERRUPTIBLE		0x0001        // 表示进程被阻塞（睡眠），直到某个条件变为真，进程的状态就被设置为TASK_RUNNING。  
+#define TASK_UNINTERRUPTIBLE		0x0002        // 表示进程被阻塞，不允许被信号唤醒   
+#define __TASK_STOPPED			0x0004        // 表示进程被停止执行   
+#define __TASK_TRACED			0x0008        // 表示进程被debugger等进程监视   
 /* Used in tsk->exit_state: */  
-#define EXIT_DEAD			0x0010        /* 表示进程的最终状态 */  
-#define EXIT_ZOMBIE			0x0020        /* 表示进程的执行被终止，但父进程没有调用wait()等系统调用来获知其终止信息 */  
+#define EXIT_DEAD			0x0010        // 表示进程的最终状态   
+#define EXIT_ZOMBIE			0x0020        // 表示进程的执行被终止，但父进程没有调用wait()等系统调用来获知其终止信息   
 #define EXIT_TRACE			(EXIT_ZOMBIE | EXIT_DEAD)  
 /* Used in tsk->state again: */  
 #define TASK_PARKED			0x0040  
@@ -179,10 +179,10 @@ state可取的值如下：
 
 	struct restart_block		restart_block;
 
-进程标识符：
-	pid_t				pid;          /* 进程pid */
-	pid_t				tgid;         /* 进程组的id，所有进程（包括轻量级进程）共同的pid */
-getpid()系统调用返回当前进程的tgid值，而不是pid值。
+进程标识符：  
+	pid_t				pid;          // 进程pid  
+	pid_t				tgid;         // 进程组的id，所有进程（包括轻量级进程）共同的pid  
+getpid()系统调用返回当前进程的tgid值，而不是pid值。  
 
 #ifdef CONFIG_STACKPROTECTOR
 	/* Canary value for the -fstack-protector GCC feature: */
@@ -275,7 +275,7 @@ getpid()系统调用返回当前进程的tgid值，而不是pid值。
 	/* Effective (overridable) subjective task credentials (COW): */
 	const struct cred __rcu		*cred;
 
-进程名称：
+进程名称：  
 	/*
 	 * executable name, excluding path.
 	 *
