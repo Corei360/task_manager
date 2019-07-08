@@ -16,7 +16,7 @@ task_struct 结构体分析：
 
 state可取的值如下：  
 /* Used in tsk->state: */  
-#define TASK_RUNNING			0x0000        /* 表示进程要么正在执行，要么正要准备执行。 */  
+#define TASK_RUNNING			0x0000        /* 表示进程要么正在执行，要么正要准备执行 */  
 #define TASK_INTERRUPTIBLE		0x0001        /* 表示进程被阻塞（睡眠），直到某个条件变为真，进程的状态就被设置为TASK_RUNNING。*/  
 #define TASK_UNINTERRUPTIBLE		0x0002        /* 表示进程被阻塞，不允许被信号唤醒 */  
 #define __TASK_STOPPED			0x0004        /* 表示进程被停止执行 */  
