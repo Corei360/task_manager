@@ -1,37 +1,38 @@
 # 进程描述符
 进程描述符由task_struct结构体表示，定义在<linux/sched.h>，抽象出来描述进程相关的信息。
 
-#ifdef CONFIG_THREAD_INFO_IN_TASK
-	/*
-	 * For reasons of header soup (see current_thread_info()), this
-	 * must be the first element of task_struct.
-	 */
-	struct thread_info		thread_info;
-#endif
+task_struct 结构体分析：  
+#ifdef CONFIG_THREAD_INFO_IN_TASK  
+	/*  
+	 * For reasons of header soup (see current_thread_info()), this  
+	 * must be the first element of task_struct.  
+	 */  
+	struct thread_info		thread_info;  
+#endif  
 
-进程状态：
-	/* -1 unrunnable, 0 runnable, >0 stopped: */
-	volatile long			state;
+进程状态：  
+	/* -1 unrunnable, 0 runnable, >0 stopped: */  
+	volatile long			state;  
 
-state可取的值如下：
-/* Used in tsk->state: */
-#define TASK_RUNNING			0x0000            /* 表示进程要么正在执行，要么正要准备执行。 */
-#define TASK_INTERRUPTIBLE		0x0001        /* 表示进程被阻塞（睡眠），直到某个条件变为真，进程的状态就被设置为TASK_RUNNING。*/
-#define TASK_UNINTERRUPTIBLE		0x0002      /* 表示进程被阻塞，不允许被信号唤醒 */
-#define __TASK_STOPPED			0x0004          /* 表示进程被停止执行 */
-#define __TASK_TRACED			0x0008            /* 表示进程被debugger等进程监视 */
-/* Used in tsk->exit_state: */
-#define EXIT_DEAD			0x0010                /* 表示进程的最终状态 */
-#define EXIT_ZOMBIE			0x0020              /* 表示进程的执行被终止，但父进程没有调用wait()等系统调用来获知其终止信息 */
-#define EXIT_TRACE			(EXIT_ZOMBIE | EXIT_DEAD)
-/* Used in tsk->state again: */
-#define TASK_PARKED			0x0040
-#define TASK_DEAD			0x0080
-#define TASK_WAKEKILL			0x0100
-#define TASK_WAKING			0x0200
-#define TASK_NOLOAD			0x0400
-#define TASK_NEW			0x0800
-#define TASK_STATE_MAX			0x1000
+state可取的值如下：  
+/* Used in tsk->state: */  
+#define TASK_RUNNING			0x0000        /* 表示进程要么正在执行，要么正要准备执行。 */  
+#define TASK_INTERRUPTIBLE		0x0001        /* 表示进程被阻塞（睡眠），直到某个条件变为真，进程的状态就被设置为TASK_RUNNING。*/  
+#define TASK_UNINTERRUPTIBLE		0x0002        /* 表示进程被阻塞，不允许被信号唤醒 */  
+#define __TASK_STOPPED			0x0004        /* 表示进程被停止执行 */  
+#define __TASK_TRACED			0x0008        /* 表示进程被debugger等进程监视 */  
+/* Used in tsk->exit_state: */  
+#define EXIT_DEAD			0x0010        /* 表示进程的最终状态 */  
+#define EXIT_ZOMBIE			0x0020        /* 表示进程的执行被终止，但父进程没有调用wait()等系统调用来获知其终止信息 */  
+#define EXIT_TRACE			(EXIT_ZOMBIE | EXIT_DEAD)  
+/* Used in tsk->state again: */  
+#define TASK_PARKED			0x0040  
+#define TASK_DEAD			0x0080  
+#define TASK_WAKEKILL			0x0100  
+#define TASK_WAKING			0x0200  
+#define TASK_NOLOAD			0x0400  
+#define TASK_NEW			0x0800  
+#define TASK_STATE_MAX			0x1000  
 
 	/*
 	 * This begins the randomizable portion of task_struct. Only
