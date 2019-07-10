@@ -25,9 +25,9 @@ state可取的值如下：
     /* Used in tsk->state: */  
     #define TASK_RUNNING			0x0000		// 表示进程要么正在执行，要么正要准备执行   
     #define TASK_INTERRUPTIBLE		0x0001		// 表示进程被阻塞（睡眠），直到某个条件变为真，进程的状态就被设置为TASK_RUNNING。  
-    #define TASK_UNINTERRUPTIBLE	0x0002		 // 表示进程被阻塞，不允许被信号唤醒   
-    #define __TASK_STOPPED			0x0004		// 表示进程被停止执行   
-    #define __TASK_TRACED			0x0008 		// 表示进程被debugger等进程监视   
+    #define TASK_UNINTERRUPTIBLE	0x0002		// 表示进程被阻塞，不允许被信号唤醒   
+    #define __TASK_STOPPED			0x0004		// 表示进程被停止执行，当进程接收到SIGSTOP、SIGTTIN、SIGTSTP或者SIGTTOU信号之后就会进入该状态
+    #define __TASK_TRACED			0x0008 		// 表示进程被debugger等进程监视，进程执行被调试程序所停止，当一个进程被另外的进程所监视，每一个信号都会让进城进入该状态
     /* Used in tsk->exit_state: */  
     #define EXIT_DEAD				0x0010		// 表示进程的最终状态   
     #define EXIT_ZOMBIE				0x0020		// 表示进程的执行被终止，但父进程没有调用wait()等系统调用来获知其终止信息   
@@ -39,7 +39,38 @@ state可取的值如下：
     #define TASK_WAKING				0x0200  
     #define TASK_NOLOAD				0x0400  
     #define TASK_NEW				0x0800  
-    #define TASK_STATE_MAX			0x1000  
+    #define TASK_STATE_MAX			0x1000
+
+	/* Convenience macros for the sake of set_current_state: */
+	#define TASK_KILLABLE			(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
+	#define TASK_STOPPED			(TASK_WAKEKILL | __TASK_STOPPED)
+	#define TASK_TRACED				(TASK_WAKEKILL | __TASK_TRACED)
+	
+	#define TASK_IDLE				(TASK_UNINTERRUPTIBLE | TASK_NOLOAD)
+	
+	/* Convenience macros for the sake of wake_up(): */
+	#define TASK_NORMAL				(TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE)
+	
+	/* get_task_state(): */
+	#define TASK_REPORT				(TASK_RUNNING | TASK_INTERRUPTIBLE | \
+									 TASK_UNINTERRUPTIBLE | __TASK_STOPPED | \
+									 __TASK_TRACED | EXIT_DEAD | EXIT_ZOMBIE | \
+									 TASK_PARKED)
+
+Linux 内核提供了两种方法将进程置为睡眠状态。
+
+方法一：  
+将进程置为睡眠状态的方法是将进程状态设置为 `TASK_INTERRUPTIBLE` 或 `TASK_UNINTERRUPTIBLE` 并调用调度程序的 schedule() 函数。这样会将进程从 CPU 运行队列中移除。
+
+* 如果进程处于可中断模式的睡眠状态（通过将其状态设置为 TASK_INTERRUPTIBLE），那么可以通过显式的唤醒呼叫（wakeup_process()）或需要处理的信号来唤醒它。  
+* 如果进程处于非可中断模式的睡眠状态（通过将其状态设置为 TASK_UNINTERRUPTIBLE），那么只能通过显式的唤醒呼叫将其唤醒。除非万不得已，否则我们建议您将进程置为可中断睡眠模式，而不是不可中断睡眠模式（比如说在设备 I/O 期间，处理信号非常困难时）。
+
+方法二：  
+将进程设置为 `TASk_KILLABLE`，当进程处于这种可以终止的睡眠状态时，它的运行原理类似于 `TASK_UNINTERRUPTIBLE`，但是可以相应致命信号。
+
+进程切换关系图：
+
+![进程切换](https://ask.qcloudimg.com/http-save/yehe-1233784/ex9er7f98h.png?imageView2/2/w/1620)
    
 #### TODO
 
@@ -53,7 +84,56 @@ state可取的值如下：
 	
     	void				*stack;
 
-stack用来指向分配给进程的内核栈。
+stack用来指向分配给进程的内核栈。  
+
+每个进程，Linux内核都把两个不同的数据结构紧凑的存放在一个单独为进程分配的内存区域中;
+
+一个是内核态的进程堆栈
+另一个是紧挨着进程描述符的小数据结构thread_info，叫做线程描述符。
+
+Linux把thread_info（线程描述符）和内核态的线程堆栈存放在一起，这块区域通常是8192K（占两个页框），其实地址必须是8192的整数倍。
+
+	/* linux/arch/x86/include/asm/page_32_types.h */
+
+	#define THREAD_SIZE_ORDER    1
+	#define THREAD_SIZE        (PAGE_SIZE << THREAD_SIZE_ORDER)
+
+	/* linux/arch/x86/include/asm/page_64_types.h */
+
+	#ifdef CONFIG_KASAN
+	#ifdef CONFIG_KASAN_EXTRA
+	#define KASAN_STACK_ORDER 2
+	#else
+	#define KASAN_STACK_ORDER 1
+	#endif
+	#else
+	#define KASAN_STACK_ORDER 0
+	#endif
+
+	#define THREAD_SIZE_ORDER	(2 + KASAN_STACK_ORDER)
+	#define THREAD_SIZE  (PAGE_SIZE << THREAD_SIZE_ORDER)
+
+出于效率考虑，内核让这8K空间占据连续的两个页框并让第一个页框的起始地址是213的倍数。
+
+内核态的进程访问处于内核数据段的栈，这个栈不同于用户态的进程所用的栈。
+
+用户态进程所用的栈，是在进程线性地址空间中；
+
+而内核栈是当进程从用户空间进入内核空间时，特权级发生变化，需要切换堆栈，那么内核空间中使用的就是这个内核栈。因为内核控制路径使用很少的栈空间，所以只需要几千个字节的内核态堆栈。
+
+**需要注意的是，内核态堆栈仅用于内核例程，Linux内核另外为中断提供了单独的硬中断栈和软中断栈**
+     
+
+下图中显示了在物理内存中存放两种数据结构的方式。线程描述符驻留与这个内存区的开始，而栈顶末端向下增长。 下图摘自ULK3,进程内核栈与进程描述符的关系如下图：  
+![](https://ask.qcloudimg.com/http-save/yehe-1233784/l8cl1edwrc.png?imageView2/2/w/1620)
+
+但是较新的内核代码中，进程描述符task_struct结构中没有直接指向thread_info结构的指针，而是用一个void指针类型的成员表示，然后通过类型转换来访问thread_info结构。
+
+	/* include/linux/sched.h */
+
+	#define task_thread_info(task)  ((struct thread_info *)(task)->stack)
+
+在这个图中，esp寄存器是CPU栈指针，用来存放栈顶单元的地址。在80x86系统中，栈起始于顶端，并朝着这个内存区开始的方向增长。从用户态刚切换到内核态以后，进程的内核栈总是空的。因此，esp寄存器指向这个栈的顶端。一旦数据写入堆栈，esp的值就递减。
 
 #### 引用计数
     	refcount_t			usage;
@@ -102,7 +182,7 @@ flags表示进程的状态信息，这里的状态信息不是指运行状态，
     #define PF_FREEZER_SKIP		0x40000000	/* Freezer should not count it as freezable */
     #define PF_SUSPEND_TASK		0x80000000  /* This thread called freeze_processes() and should not be frozen */
     
-#### prace系统调用
+#### ptrace系统调用
 
     	unsigned int			ptrace;
 
@@ -212,9 +292,19 @@ mm：进程的内存描述符，由于内核线程没有进程地址空间，所
     #ifdef SPLIT_RSS_COUNTING
     	struct task_rss_stat		rss_stat;
     #endif
+
+#### 进程结束状态
+
     	int				exit_state;
     	int				exit_code;
     	int				exit_signal;
+
+两个附加的进程状态既可以被添加到state域中，又可以被添加到exit_state域中。只有当进程终止的时候，才会达到这两种状态，如下：  
+`EXIT_ZOMBIE`：进程的执行被终止，但是其父进程还没有使用wait()等系统调用来获知它的终止信息，此时进程成为僵尸进程  
+`EXIT_DEAD`：进程的最终状态
+
+#### TODO
+
     	/* The signal sent when the parent dies: */
     	int				pdeath_signal;
     	/* JOBCTL_*, siglock protected: */
@@ -273,6 +363,20 @@ getpid()系统调用返回当前进程的tgid值，而不是pid值。
 32位linux可以创建进程数理论上可以是一个int大小，即2^32，考虑到与老版本的兼容性问题，理论最大值为2^16（65535），但是此处没有考虑到符号问题，由于int是有符号的，所以实际可以取值一般为32768个。  
 64位linux可以创建进程数一般为131037。
 
+内核默认定义如下：  
+在CONFIG_BASE_SMALL配置为0的情况下，PID的取值范围是0到32767，即系统中的进程数最大为32768个。
+PID的最大取值可以是4百万个。
+
+	/* include/linux/threads.h */
+	#define PID_MAX_DEFAULT (CONFIG_BASE_SMALL ? 0x1000 : 0x8000)  
+
+	/*
+	 * A maximum of 4 million PIDs should be enough for a while.
+	 * [NOTE: PID/TIDs are limited to 2^29 ~= 500+ million, see futex.h.]
+	 */
+	#define PID_MAX_LIMIT (CONFIG_BASE_SMALL ? PAGE_SIZE * 8 : \
+			(sizeof(long) > 4 ? 4 * 1024 * 1024 : PID_MAX_DEFAULT))
+
 查看
 
 可以使用cat /proc/sys/kernel/pid_max来查看系统中可创建的进程数实际值
@@ -283,9 +387,7 @@ getpid()系统调用返回当前进程的tgid值，而不是pid值。
 
     ulimit -u 65535
 
-设置完以后，虽然设置户创建进程数的硬限制和软限制都是65535，但是还不能创建65535个进程，还需要设置内核参数kernel.pid_max，这个参数默认安装都是32768,
-
-所以即使使用root帐户，如果不设置这个内核参数，整个系统最多可以创建的进程数仍然是32768。
+设置完以后，虽然设置户创建进程数的硬限制和软限制都是65535，但是还不能创建65535个进程，还需要设置内核参数kernel.pid_max，这个参数默认安装都是32768，所以即使使用root帐户，如果不设置这个内核参数，整个系统最多可以创建的进程数仍然是32768。
 
     sysctl -w  kernel.pid_max=65535
 
@@ -828,3 +930,7 @@ files：当前进程打开的文件
     	 *
     	 * Do not put anything below here!
     	 */
+
+
+## 参考
+[https://cloud.tencent.com/developer/article/1339556](https://cloud.tencent.com/developer/article/1339556)
