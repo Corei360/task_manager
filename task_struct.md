@@ -70,7 +70,7 @@ Linux 内核提供了两种方法将进程置为睡眠状态。
 
 进程切换关系图：
 
-![进程切换](https://ask.qcloudimg.com/http-save/yehe-1233784/ex9er7f98h.png?imageView2/2/w/1620)
+![](https://ask.qcloudimg.com/http-save/yehe-1233784/ex9er7f98h.png?imageView2/2/w/1620)
    
 #### TODO
 
